@@ -15,68 +15,61 @@
         input, button { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
         .btn-ws { background: var(--s); color: white; border: none; font-weight: bold; cursor: pointer; }
         .btn-excel { background: var(--e); color: white; border: none; font-weight: bold; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; background: #f8f9fa; padding: 10px; border-bottom: 2px solid #dee2e6; }
+        .btn-backup { background: #6c757d; color: white; border: none; font-size: 12px; padding: 8px; width: 48%; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; background: #f8f9fa; padding: 10px; border-bottom: 2px solid #dee2e6; font-size: 13px; }
         td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .input-inline { padding: 5px; border: 1px solid var(--p); border-radius: 4px; text-align: center; width: 60px; }
-        .unit-edit { width: 85px; background: #fffde7; }
         .results-box { position: absolute; background: white; width: 100%; max-height: 280px; overflow-y: auto; border: 1px solid #ddd; z-index: 100; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
         .result-item { padding: 14px; cursor: pointer; border-bottom: 1px solid #f1f1f1; text-align: left; }
         .result-item:hover { background: #eef6ff; }
         .search-container { position: relative; }
-        .grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="logo-vibras">✨ Vibras Positivas ✨</div>
-    <div class="reloj-colombia" id="reloj">🇨🇴 31 de enero de 2026, 3:20 p. m.</div>
+    <div class="reloj-colombia" id="reloj">Cargando hora...</div>
 
     <div class="card">
         <input type="text" id="cliente" placeholder="Nombre del Cliente">
-        <div class="grid-inputs">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
             <input type="text" id="direccion" placeholder="Dirección">
             <input type="tel" id="celular" placeholder="Celular">
         </div>
         <div class="search-container">
-            <input type="text" id="buscador" placeholder="🔍 Buscar en los 1.253 productos..." oninput="buscar()">
+            <input type="text" id="buscador" placeholder="🔍 Buscar entre 1.253 productos..." oninput="buscar()">
             <div id="resultados" class="results-box"></div>
         </div>
     </div>
 
     <div class="card">
         <h3>Pedido Actual</h3>
-        <div style="overflow-x: auto;">
-            <table>
-                <thead>
-                    <tr><th>Producto</th><th style="width:100px">Und</th><th style="width:70px">Cant</th><th></th></tr>
-                </thead>
-                <tbody id="tabla-cuerpo"></tbody>
-            </table>
+        <table style="width:100%">
+            <thead><tr><th>Producto</th><th style="width:80px">Und</th><th style="width:60px">Cant</th><th></th></tr></thead>
+            <tbody id="tabla-cuerpo"></tbody>
+        </table>
+        <button class="btn-ws" onclick="enviarWA()">📲 Enviar WhatsApp</button>
+        <button class="btn-excel" onclick="bajarExcel()">📊 Descargar Excel</button>
+    </div>
+
+    <div class="card" style="text-align:center; background:#f8f9fa;">
+        <p style="font-size:12px; font-weight:bold; margin-bottom:10px;">SOPORTE DE BASE DE DATOS</p>
+        <div style="display:flex; justify-content:space-between;">
+            <button class="btn-backup" onclick="exportarBackup()">💾 Exportar Soporte</button>
+            <button class="btn-backup" onclick="document.getElementById('import-f').click()">📥 Importar Soporte</button>
+            <input type="file" id="import-f" style="display:none" onchange="importarBackup(event)">
         </div>
-        <div id="vacio" style="text-align:center; color:gray; padding:20px;">No hay productos agregados</div>
-        <button class="btn-ws" onclick="enviarWA()">📲 Enviar Pedido por WhatsApp</button>
-        <button class="btn-excel" onclick="bajarExcel()">📊 Descargar Pedido en Excel</button>
     </div>
 </div>
 
 <script>
-    // BASE DE DATOS COMPLETA DE 1.253 PRODUCTOS (RESUMIDA)
-    const productosDB = [
-        {n: "1 BON BOM FRESA + 1 BON INTEN + 1 SURTID", u: "UND"},
-        {n: "1 BRINKY CHOCO+1 PINT.LENG+1 LIMON*10 P.", u: "UND"},
-        {n: "1 PACA MEGARROLLO 48*1 + 4 MEGA*1", u: "UND"},
-        {n: "ACEITE MI CALDERITO 12*900ML 122342", u: "UND"},
-        {n: "FRIJOL LIMA EL TRECE 25*500GR 23500", u: "UND"},
-        {n: "SUPER ARROZ 25LB*500G UND", u: "paca"},
-        {n: "SAL REFISAL 25UND*500GR 11105", u: "paca"},
-        {n: "ARROZ VISTAHERMOSA 10LB", u: "paca"}
-        // El sistema cargará el resto desde tu archivo original
+    // === PEGUE AQUÍ LA LISTA DE LOS 1253 PRODUCTOS ===
+    let productosDB = [
+        /* BORRE ESTO Y PEGUE AQUÍ EL TEXTO DEL LINK */
     ];
 
     let pedido = [];
-
     function actualizarReloj() {
         const opciones = { timeZone: 'America/Bogota', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
         document.getElementById('reloj').innerText = "🇨🇴 " + new Date().toLocaleString('es-CO', opciones);
@@ -89,14 +82,13 @@
         const resBox = document.getElementById('resultados');
         resBox.innerHTML = "";
         if(txt.length < 2) { resBox.style.display = "none"; return; }
-
         const filtrados = productosDB.filter(p => p.n.toLowerCase().includes(txt)).slice(0, 40);
         if(filtrados.length > 0) {
             resBox.style.display = "block";
             filtrados.forEach(p => {
                 const div = document.createElement('div');
                 div.className = "result-item";
-                div.innerHTML = `<strong>${p.n}</strong><br><small>Und: ${p.u}</small>`;
+                div.innerHTML = `<strong>${p.n}</strong><br><small>Unidad: ${p.u}</small>`;
                 div.onclick = () => { pedido.push({...p, c: 1}); render(); resBox.style.display="none"; document.getElementById('buscador').value=""; };
                 resBox.appendChild(div);
             });
@@ -105,15 +97,14 @@
 
     function render() {
         const tabla = document.getElementById('tabla-cuerpo');
-        document.getElementById('vacio').style.display = pedido.length ? "none" : "block";
         tabla.innerHTML = "";
         pedido.forEach((item, i) => {
             const fila = document.createElement('tr');
             fila.innerHTML = `
-                <td>${item.n}</td>
-                <td><input type="text" class="input-inline unit-edit" value="${item.u}" onchange="pedido[${i}].u=this.value"></td>
-                <td><input type="number" class="input-inline" value="${item.c}" onchange="pedido[${i}].c=this.value"></td>
-                <td><button style="background:red; color:white; border:none; padding:5px; border-radius:4px;" onclick="pedido.splice(${i},1);render()">✕</button></td>
+                <td><small>${item.n}</small></td>
+                <td><input type="text" style="width:60px" value="${item.u}" onchange="pedido[${i}].u=this.value"></td>
+                <td><input type="number" style="width:50px" value="${item.c}" onchange="pedido[${i}].c=this.value"></td>
+                <td><button style="background:red; color:white; border:none; border-radius:4px" onclick="pedido.splice(${i},1);render()">✕</button></td>
             `;
             tabla.appendChild(fila);
         });
@@ -121,28 +112,35 @@
 
     function enviarWA() {
         const cli = document.getElementById('cliente').value;
-        const dir = document.getElementById('direccion').value;
-        const cel = document.getElementById('celular').value;
-        if(!cli || !dir || !cel) return alert("Por favor complete los datos del cliente");
-        let msg = `*📦 PEDIDO DISTRILECO*%0A*Cliente:* ${cli}%0A*Dir:* ${dir}%0A*Cel:* ${cel}%0A*Hora:* ${document.getElementById('reloj').innerText}%0A%0A`;
-        pedido.forEach(p => { msg += `✅ *${p.n}*%0A   Cant: ${p.c} (${p.u})%0A`; });
+        if(!cli) return alert("Falta nombre del cliente");
+        let msg = `*📦 PEDIDO DISTRILECO*%0A*Cliente:* ${cli}%0A*Hora:* ${document.getElementById('reloj').innerText}%0A%0A`;
+        pedido.forEach(p => msg += `✅ ${p.n}%0A   Cant: ${p.c} (${p.u})%0A%0A`);
         window.open(`https://wa.me/?text=${msg}`);
     }
 
     function bajarExcel() {
         const cli = document.getElementById('cliente').value || "Cliente";
-        const encabezado = [
-            ["DISTRILECO"], ["Cliente:", cli], 
-            ["Dirección:", document.getElementById('direccion').value],
-            ["Celular:", document.getElementById('celular').value],
-            ["Registro:", document.getElementById('reloj').innerText],
-            [], ["PRODUCTO", "UNIDAD", "CANTIDAD"]
-        ];
-        const data = encabezado.concat(pedido.map(p => [p.n, p.u, p.c]));
+        const data = [["DISTRILECO"], ["Cliente:", cli], ["Fecha:", document.getElementById('reloj').innerText], [], ["PRODUCTO", "UNIDAD", "CANTIDAD"]];
+        pedido.forEach(p => data.push([p.n, p.u, p.c]));
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Pedido");
         XLSX.writeFile(wb, `Pedido_${cli}.xlsx`);
+    }
+
+    function exportarBackup() {
+        const blob = new Blob([JSON.stringify(productosDB)], {type: "application/json"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = "soporte_distrileco.json"; a.click();
+    }
+
+    function importarBackup(e) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            productosDB = JSON.parse(evt.target.result);
+            alert("Base de datos de Distrileco restaurada.");
+        };
+        reader.readAsText(e.target.files[0]);
     }
 </script>
 </body>
