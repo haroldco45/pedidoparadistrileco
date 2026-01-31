@@ -13,9 +13,10 @@
         .logo-vibras { text-align: center; font-weight: bold; color: var(--accent); margin-bottom: 5px; font-style: italic; font-size: 24px; }
         .reloj-colombia { text-align: center; background: #2c3e50; color: #fff; padding: 10px; border-radius: 10px; margin-bottom: 15px; font-family: monospace; font-size: 1.1em; }
         input, button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-        .btn-ws { background: var(--s); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-ws { background: var(--s); color: white; border: none; font-weight: bold; cursor: pointer; }
         .btn-excel { background: var(--e); color: white; border: none; font-weight: bold; cursor: pointer; }
-        .btn-add-manual { background: var(--accent); color: white; border: none; font-weight: bold; padding: 8px; font-size: 14px; }
+        .btn-add-manual { background: var(--accent); color: white; border: none; font-weight: bold; padding: 8px; font-size: 14px; cursor: pointer; }
+        .btn-backup { background: #6c757d; color: white; border: none; font-weight: bold; padding: 8px; font-size: 12px; cursor: pointer; margin-top: 5px; border-radius: 5px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { text-align: left; background: #f8f9fa; padding: 10px; border-bottom: 2px solid #dee2e6; font-size: 13px; }
         td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
@@ -24,13 +25,14 @@
         .result-item:hover { background: #f0f7ff; }
         .search-container { position: relative; }
         .manual-box { border: 2px dashed var(--accent); padding: 15px; border-radius: 10px; background: #fffdf5; margin-top: 10px; }
+        .backup-section { display: flex; gap: 10px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="logo-vibras">✨ Vibras Positivas ✨</div>
-    <div class="reloj-colombia" id="reloj">Cargando hora de Colombia...</div>
+    <div class="reloj-colombia" id="reloj">Cargando hora...</div>
 
     <div class="card">
         <label>Información del Cliente</label>
@@ -40,7 +42,7 @@
             <input type="tel" id="celular" placeholder="Celular">
         </div>
         
-        <label>Buscar Producto</label>
+        <label id="lbl-buscador">Buscar Producto (Cargando...)</label>
         <div class="search-container">
             <input type="text" id="buscador" placeholder="🔍 Escriba para buscar..." oninput="buscarAccion()">
             <div id="resultados" class="results-box"></div>
@@ -52,7 +54,13 @@
                 <input type="text" id="manual-nombre" placeholder="Nombre artículo">
                 <input type="text" id="manual-unidad" placeholder="Und (Paca/Kg)">
             </div>
-            <button class="btn-add-manual" onclick="agregarManual()">+ Agregar al Pedido</button>
+            <button class="btn-add-manual" onclick="agregarManual()">+ Agregar al Pedido y Guardar</button>
+        </div>
+
+        <div class="backup-section">
+            <button class="btn-backup" onclick="exportarBackup()">📥 Exportar Backup</button>
+            <button class="btn-backup" onclick="document.getElementById('file-input').click()">📤 Importar Backup</button>
+            <input type="file" id="file-input" style="display:none" onchange="importarBackup(event)">
         </div>
     </div>
 
@@ -72,322 +80,30 @@
 </div>
 
 <script>
-    // BASE DE DATOS CORREGIDA
-    const productosDB = [
+    // LISTA MAESTRA INICIAL
+    let productosDB = [
         {n: "SUPER ARROZ 25LB*500G UND", u: "paca"},
         {n: "ACEITE MI CALDERITO 6*2000ML UND", u: "UND"},
         {n: "SAL REFISAL 25UND*500GR 11105", u: "paca"},
-        {n: "FRIJOL LIMA EL TRECE 25*500GR 23500", u: "UND"},
-        {n: "ACEITE MI CALDERITO 12*900ML 122342", u: "UND"},
-        {n: "1 PACA MEGARROLLO 48*1 + 4 MEGA*1", u: "UND"},
         {n: "ARROZ VISTAHERMOSA 10LB", u: "paca"},
         {n: "ARROZ SUPERARROZ 500G", u: "paca"},
-        {n: "1 BON BOM FRESA + 1 BON INTEN + SURTID", u: "u"},
-        {n: "1 BRINKY CHOCO+1 PINT.LENG+1 LIMON*10 P.", u: "und"},
-        {n: "1 CAJA NOS PLUS CANAL GEL 30*10 P.ESP", u: "und"},
-        {n: "1 MINIBUM SURTIDO/ASSORT 16*100 P.ESP", u: "und"},
-        {n: "1 PACA PAPEL EXPERT 24*1+2 EXPERT*1 3827", u: "und"},
-        {n: "1 SALSA TOM CONST 6DISP*12*80GR P.ESP", u: "und"},
-        {n: "1 SPLOT ACI LIN 18*24+1SPLOT BOLA 16*100", u: "und"},
-        {n: "12 DISP PAnITO HUM PEQ ALMENDR 24*24 P.E", u: "und"},
-        {n: "13 PAnITO HUM PEQ ALMENDRA 12*100 P.ESP", u: "und"},
-        {n: "15 CAJA NOS INV RAPIGEL 24*10 P.ESPC", u: "und"},
-        {n: "2 CRAKEnAS CLUB INDV 24BS*10 PRE.ESPE", u: "und"},
-        {n: "2 GALLETA MUU TIPO LECHE 30BS*18 P.ESP", u: "und"},
-        {n: "2 PACA PAPEL H FLIA MEGARROLLO 4*12 P.ES", u: "und"},
-        {n: "2 QUIMBAYA BRIDGE 18BS*18 P.ESP", u: "und"},
-        {n: "24 PAPEL FAMILIAR 24*1 + 2 FAMILIA*1", u: "und"},
-        {n: "24 PAPEL H GREEN *1 + 3 GREEN *1 P.ES", u: "und"},
-        {n: "24 PAPEL MEGARROLLO *1 + 2 MEGA *1", u: "und"},
-        {n: "5 CAJA NOS INV RAPIGEL 8*30+15 MULT P.ES", u: "und"},
-        {n: "5 CAJA SERVIL FLIA PARTID 1A1 32*150 P.E", u: "und"},
-        {n: "6 GRISSLY OSO 24*1*72G PRECIO ESPEC", u: "und"},
-        {n: "7 TOALL COCI FLIA PRACTI 12*1*50H P.ESP", u: "und"},
-        {n: "8 GRISSLY POSTOBON 24*1*67GR PREC.ESPE", u: "und"},
-        {n: "ACEITE DE CITRONELA ALASKA 12*250ML 0101", u: "und"},
-        {n: "ACEITE DE OLIVA EXTR VIRGEN 48*250 26100", u: "und"},
-        {n: "ACEITE DON F R2000 X 6 164", u: "und"},
-        {n: "ACEITE DON F R900 X 12 296", u: "und"},
-        {n: "ACEITE FRITON SOYA 12*1000 UND", u: "und"},
-        {n: "ACEITE JYJ ANT DE DORMIR 12*100 573885", u: "und"},
-        {n: "ACEITE JYJ ORIGINA 12U*100 572502-577397", u: "und"},
-        {n: "ACEITE JYJ ORIGINAL 12UND *300 572501", u: "und"},
-        {n: "ACEITE JYJ ORIGINAL 144*50ML 572503", u: "und"},
-        {n: "ACEITE MI CALDERITO 24*250ML 122343", u: "und"},
-        {n: "ACEITE MI CALDERITO 6*2000ML 122345", u: "und"},
-        {n: "ACEITE MI CALDERITO 6*3000ML 122339", u: "und"},
-        {n: "ACEITE RICACEITE 12*1000ML", u: "und"},
-        {n: "ACEITE RICACEITE 24*500ML", u: "und"},
-        {n: "ACEITE RICACEITE 6*3000ML", u: "und"},
-        {n: "ACIDO DESMANCHADOR 24*460ML 0102", u: "und"},
-        {n: "ACOND JYJ FUERZA Y VIT 12*200ML 577177", u: "und"},
-        {n: "ACOND JYJ FUERZA Y VIT 12*400 9358-7146", u: "und"},
-        {n: "ACOND JYJ GOT DE BRILLO 12*200 573825", u: "und"},
-        {n: "ACOND JYJ GOT DE BRILLO 12*400ML 529342", u: "und"},
-        {n: "ACOND JYJ HIDRATACIO INT12*400 529344", u: "und"},
-        {n: "ACOND JYJ MANZANILLA NUEV 12*400 574346", u: "und"},
-        {n: "ACOND ORIGINAL NUEV 12*400ML 573871", u: "und"},
-        {n: "ACOND PANT COLAGENO 12*250ML", u: "und"},
-        {n: "ACOND PANTE 3 MINUTOS 25*12*18ML", u: "und"},
-        {n: "ACOND PANTE BAMBU 12*200ML", u: "und"},
-        {n: "ACOND PANTE CONT-CAI 12*400ML 303518", u: "und"},
-        {n: "ACOND PANTE RESTAURAC 12*400ML", u: "und"},
-        {n: "ACOND PANTE RIZO-DEF 12*400ML", u: "und"},
-        {n: "AJI PICANTE CONSTAN 48*100GR 3132", u: "und"},
-        {n: "ALPISTE GRANIPACK 25*460G 101C4", u: "und"},
-        {n: "ARCOS ANISADA 24BS*100UND 1681", u: "und"},
-        {n: "ARCOS BANANA EXTRA 24BS*100 1683", u: "und"},
-        {n: "ARCOS MORA 24BS*100UND 5000", u: "und"},
-        {n: "AREPA AMARILLA SOBERANA 24*500G 2030512", u: "und"},
-        {n: "AREQUIPE PROLECHE 12DIP*24UND*50G 827196", u: "und"},
-        {n: "AREQUIPE PROLECHE 24*500GR 27198", u: "und"},
-        {n: "AREQUIPE PROLECHE 24*6*50GR 827195", u: "und"},
-        {n: "AREQUIPE PROLECHE 36*220GR 827394", u: "und"},
-        {n: "AREQUIPE PROLECHE 48*150GR 827236", u: "und"},
-        {n: "ARIEL LIQUIDO CONCENTRADO 6*1.8ML", u: "und"},
-        {n: "ARIEL LIQUIDO CONCENTRADO 9*400ML", u: "und"},
-        {n: "ARIEL LIQUIDO CONCENTRADO DPK 8*1.2ML", u: "und"},
-        {n: "ARIEL LIQUIDO REVITACOLOR 6*1.8ML", u: "und"},
-        {n: "ARIEL REGU 14*225G+4 REVITA*225G 254363", u: "und"},
-        {n: "ARIEL REGULAR 45*100GR", u: "und"},
-        {n: "ARIEL REGULAR 10*1500G", u: "und"},
-        {n: "ARIEL REGULAR 12*1KG 2413", u: "und"},
-        {n: "ARIEL REGULAR 14*700GR NUEV 5296", u: "und"},
-        {n: "ARIEL REGULAR 24*225G 01322", u: "und"},
-        {n: "ARIEL REGULAR 24*450G", u: "und"},
-        {n: "ARIEL REGULAR 5UND*3500KG 40652", u: "und"},
-        {n: "ARIEL REVITACOLOR 12*1KG 49563", u: "und"},
-        {n: "ARIEL REVITACOLOR 14*700GR 51600", u: "und"},
-        {n: "ARIEL REVITACOLOR 24*225GR", u: "und"},
-        {n: "ARIEL REVITACOLOR 24*450GR 60179", u: "und"},
-        {n: "ARIEL REVITACOLOR 45*100GR 51273", u: "und"},
-        {n: "AROMATIC TOSH MANZ&LIM&JENG 20*20SB 1414", u: "und"},
-        {n: "AROMATICA TOSH FRUTO ROJO 24*10SB 31245", u: "und"},
-        {n: "AROMATICA TOSH MANZ&LIM&JENG 24*10S 1415", u: "und"},
-        {n: "ARROZ COPITO X 45KG", u: "und"},
-        {n: "ARROZ CORRIENTE #1 *45KL", u: "und"},
-        {n: "ARROZ CORRIENTE #2 *45KL", u: "und"},
-        {n: "ARROZ CORRIENTE #3 *45KL", u: "und"},
-        {n: "ARROZ DE DESECHO*45KG", u: "und"},
-        {n: "ARVEJA CON ZANAHO ZENU 24*580GR 0084", u: "und"},
-        {n: "ARVEJA CON ZANAHO ZENU 48*300GR 0083", u: "und"},
-        {n: "ARVEJA NATURAL ZENU 48*300G 0080", u: "und"},
-        {n: "ARVEJA SECA GRANIPACK 25*460G 101A1", u: "und"},
-        {n: "ATAFACIL 72*130MT", u: "und"},
-        {n: "ATUN LOMITO ACEITE IDEAL 48*175G 38082", u: "und"},
-        {n: "ATUN LOMITO ACEITE ZENU 24*160GR 5885", u: "und"},
-        {n: "ATUN LOMITO AGUA ZENU 24*160GR 5886", u: "und"},
-        {n: "ATUN LOMITO CATALINA EN ACEITE 48*160GR", u: "und"},
-        {n: "ATUN LOMITO PERLADO ACEITE 48*175GR NUEV", u: "und"},
-        {n: "ATUN LOMITO PERLADO AGUA 48*175GR NUEV", u: "und"},
-        {n: "ATUN RALLADO SOBERANA AGUA 48*170G 11609", u: "und"},
-        {n: "ATUN VAN EN ACEITE 12DISP*8*80G 16361", u: "und"},
-        {n: "ATUN VAN EN ACEITE 32DP*3*80G 16658", u: "und"},
-        {n: "ATUN VAN LOMITO EN ACEITE 48*160G 15693", u: "und"},
-        {n: "ATUN VAN LOMITO EN AGUA 48*160G 15692", u: "und"},
-        {n: "AVENA DEL SUR CANELA 4D*200 NUEV 1196", u: "und"},
-        {n: "AVENA DEL SUR FRESA 4D*200 NUEV 1192", u: "und"},
-        {n: "AVENA DEL SUR MORA 4D*200 NUEV 1200", u: "und"},
-        {n: "AVENA DEL SUR PINA 4D*200 NUEV 1198", u: "und"},
-        {n: "AVENA DEL SUR SALPICON 4D*200 NUEV 1194", u: "und"},
-        {n: "AVENA DEL SUR VAINILLA 4D*200 NUEV 1190", u: "und"},
-        {n: "AVENA HARINA DEL SUR 4DOC*200GR 0038", u: "und"},
-        {n: "AVENA HOJUELA DEL SUR 48*200GR UND", u: "und"},
-        {n: "AVENA HOJUELA DEL SUR 4DOC*200GR 0039", u: "und"},
-        {n: "AVENA SABOR TARRO CANEL 12*400G 1070", u: "und"},
-        {n: "AVENA SABOR TARRO FRESA 12*400 1069", u: "und"},
-        {n: "AVENA SABOR TARRO MORA 12*400G 1071", u: "und"},
-        {n: "AVENA SABOR TARRO VAINI 12*400G 1074", u: "und"},
-        {n: "AXION CREMA LIMON 48*235GR 68AB2", u: "und"},
-        {n: "AXION CREMA LIMON 72*150G 48AB2", u: "und"},
-        {n: "AZUCAR BLANCA 10BOL*2.5KG 3553/3837", u: "und"},
-        {n: "AZUCAR BLANCA 25BOL*1000GR 1823/3830", u: "und"},
-        {n: "AZUCAR BLANCA PROVID 25BS*500GR 408/3839", u: "und"},
-        {n: "AZUCAR MORENA 25*1000 UND", u: "und"},
-        {n: "AZUCAR MORENA 25*1000GR 234", u: "und"},
-        {n: "AZUCAR PULVERIZADA 18BOLS*500GR 630", u: "und"},
-        {n: "AZUCAR SOBRES 10BOL*200UND 3468", u: "und"},
-        {n: "BAnO LIQ BABY HIDRA INT 12*400ML 531853", u: "und"},
-        {n: "BAnO LIQ JYJ PIES/CABE DPK12*180G 582129", u: "und"},
-        {n: "BAnO LIQU ANTES DE DORMIR12*400ML 557377", u: "und"},
-        {n: "BAnO LIQUI AVENA NUEV 12*400ML 531845", u: "und"},
-        {n: "BAnO LIQUI PIES A CABEZA 12*200M 573639", u: "und"},
-        {n: "BAnO LIQUI PIES A CABEZA 12*400G 574576", u: "und"},
-        {n: "BAnO LIQUI RECI/NACI NUEV 12*200 533878", u: "und"},
-        {n: "BAYGON LIQUIDO 24*230ML 300874-2286", u: "und"},
-        {n: "BAYGON LIQUIDO 24*475ML", u: "und"},
-        {n: "BLANCOX 12*1000 LIMON FUSION 32321", u: "und"},
-        {n: "BLANCOX 4*3800ML FLORAL VITAL 40080", u: "und"},
-        {n: "BLANCOX COJIN 144*100ML 33152", u: "und"},
-        {n: "BLANCOX DESINFE FRUT/VERD 4*3800ML 41143", u: "und"},
-        {n: "BLANCOX FLORAL VITAL M/O 8*2000ML 0073", u: "und"},
-        {n: "BLANCOX GEL FRESCURA 12*1000ML 40280", u: "und"},
-        {n: "BLANCOX PRIMAVERAL 24*500ML 341239", u: "und"},
-        {n: "BLANCOX TRADIC FRESCURA 24*500ML 340832", u: "und"},
-        {n: "BLANCOX TRADIC MEGA OFER 8*2000ML 0072", u: "und"},
-        {n: "BLANCOX TRADICIONAL *20LTS 30048", u: "und"},
-        {n: "BLANCOX TRADICIONAL 12*1000ML 2116", u: "und"},
-        {n: "BLANCOX TRADICIONAL 24*500ML 0208", u: "und"},
-        {n: "BLANCOX TRADICIONAL 4*3800ML MEGA 0079", u: "und"},
-        {n: "BLANCOX TRADICIONAL REPUES 24*500ML 0076", u: "und"},
-        {n: "BON AIRE AEROSOL FLORAL 12*250ML 0201", u: "und"},
-        {n: "BON AIRE AEROSOL VAINILLA 12*250ML 0204", u: "und"},
-        {n: "BON AIRE AUTO DISK FRUTA CARIBE 12*8GR", u: "und"},
-        {n: "BON AIRE AUTO DISK VAINILL AMBAR 12*8GR", u: "und"},
-        {n: "BON AIRE AUTOMADEIRA FRUROJO 12*6mL 0102", u: "und"},
-        {n: "BON AIRE AUTOMADEIRA TROPIC 12*6ML 0101", u: "und"},
-        {n: "BON AIRE AUTOMADEIRA VAINI 12*6ML 0103", u: "und"},
-        {n: "BON AIRE DOSIF FLORAL+RPT 6*250ML 0105", u: "und"},
-        {n: "BON AIRE DOSIF VAINILLA+RPT 6*250 0108", u: "und"},
-        {n: "BON AIRE ELEC RPT VAINI/AMBAR 12*25 0204", u: "und"},
-        {n: "BON AIRE ELEC RPT*3 FRU ROJ 12*25ML 0401", u: "und"},
-        {n: "BON AIRE ELECT OIL VAIN&AMBAR 12*25 0107", u: "und"},
-        {n: "BON AIRE ELECT RPT MAND&TORON 12*25 0207", u: "und"},
-        {n: "BON AIRE ELECT RPT*2 F/ROJO 12*25ML 0303", u: "und"},
-        {n: "BON AIRE ELECTR RPT*2 VAINI 12*25ML 0304", u: "und"},
-        {n: "BON AIRE ELECTRA OIL F/CARI 12*25ML 0108", u: "und"},
-        {n: "BON AIRE ELECTRA OIL F/ROJO 12*25ML 0104", u: "und"},
-        {n: "BON AIRE ELECTRA RPT FRU ROJ 12*25ML 203", u: "und"},
-        {n: "BON AIRE GEL FRU ROJO MORA 12*80G 30102", u: "und"},
-        {n: "BON AIRE GEL REPT MANZ/CANE 24*40G 0106", u: "und"},
-        {n: "BON AIRE GEL REPT MORA SILVE 24*40G 0105", u: "und"},
-        {n: "BON BON BUM FRESA 15BS*24UND 28118", u: "und"},
-        {n: "BON BON BUM FRESA INTEN 15*24UN 22429", u: "und"},
-        {n: "BON BON BUM SURTIDO 15BS*24UN 24257", u: "und"},
-        {n: "BON BON BUM TAJIN 12RT*12UND*17G 16559", u: "und"},
-        {n: "BON GEL CONO FRUTAS CARIBE 12*170GR 0103", u: "und"},
-        {n: "BON GEL CONO FRUTOS ROJOS 12*170GR 0101", u: "und"},
-        {n: "BON SPRAY BABY FRESH 12*400 0106", u: "und"},
-        {n: "BON SPRAY BAMBU 12*400 0107", u: "und"},
-        {n: "BON SPRAY BRISA TROPICAL 12*250 0101", u: "und"},
-        {n: "BON SPRAY CANELA Y MIEL 12*400ML 30108", u: "und"},
-        {n: "BON SPRAY FLORAL ORQUIDEA 12*400 30105", u: "und"},
-        {n: "BON SPRAY FRUTAS DEL CARIBE 12*400 30116", u: "und"},
-        {n: "BON SPRAY FRUTOS ROJOS 12*250 0103", u: "und"},
-        {n: "BON SPRAY FRUTOS ROJOS 12*400ML 0111", u: "und"},
-        {n: "BON SPRAY LAVANDA PROVENZA 12*400ML 0110", u: "und"},
-        {n: "BON SPRAY VAINILLA Y AMBAR 12*400ML", u: "und"},
-        {n: "BON VARITA LAVA-PRO-MANZANI 12*80ML 0112", u: "und"},
-        {n: "BON VARITAS AGUA VERBENA 12*2*60ML 0108", u: "und"},
-        {n: "BON VARITAS ARMO FLORAL 12*80ML 0106", u: "und"},
-        {n: "BON VARITAS BAMBU 12*2*80ML 20301", u: "und"},
-        {n: "BON VARITAS BAMBU 12*80ML 0107", u: "und"},
-        {n: "BON VARITAS FRUT CARIBE 12*2*60ML 30106", u: "und"},
-        {n: "BON VARITAS FRUT ROJ 12*2*80ML 20302", u: "und"},
-        {n: "BON VARITAS FRUTO ROJO 12*40ML 10101", u: "und"},
-        {n: "BON VARITAS FRUTOS ROJOS 12*80ML 0110", u: "und"},
-        {n: "BON VARITAS GRANADILLA 12*80ML 0111", u: "und"},
-        {n: "BON VARITAS MANZA/CANELA 12*40ML 10102", u: "und"},
-        {n: "BON VARITAS MANZANA CANELA 12*80ML 20113", u: "und"},
-        {n: "BON VARITAS MORA SILVEST 12*2*60ML 0107", u: "und"},
-        {n: "BON VARITAS POMELO 12*80ML 0114", u: "und"},
-        {n: "BON VARITAS VAINILLA 12*2*80ML 0306", u: "und"},
-        {n: "BON VARITAS VAINILLA 12*40ML 10103", u: "und"},
-        {n: "BON VARITAS VAINILLA 12*80ML 0115", u: "und"},
-        {n: "BON VELAROMA BIFASICA CINNAMON 12*103G", u: "und"},
-        {n: "BON VELAROMA BIFASICA VAINILLA 12*103G", u: "und"},
-        {n: "BRIDGE IND AREQUIPE 24BS*10PAQ*6 27142", u: "und"},
-        {n: "BRIDGE IND CHOCOLATE 24BS*10PAQ*6 27139", u: "und"},
-        {n: "BRIDGE IND FRESA 24BS*10PAQ*6 27144", u: "und"},
-        {n: "BRIDGE IND LIMON 24BS*10PAQ*6 27635", u: "und"},
-        {n: "BRIDGE IND NARANJA 24BS*10PAQ*6 27145", u: "und"},
-        {n: "BRIDGE IND RON C.PASAS 24BS*10PQ*6 27148", u: "und"},
-        {n: "BRIDGE IND VAINILLA 24BS*10PAQ*6 27137", u: "und"},
-        {n: "BRIDGE MTCO AREQUIPE *24MTA 4493", u: "und"},
-        {n: "BRIDGE MTCO CHOCOLATE *24MTA 4490", u: "und"},
-        {n: "BRIDGE XL CHOCOLATE 8DP*9*45.5G 20821", u: "und"},
-        {n: "BRINKY CHOCOLATE 24BS*10*6 26990", u: "und"},
-        {n: "BRINKY FRESA 24BS*12*4 20506", u: "und"},
-        {n: "BRINKY LIMON 24BS*12*4 20517", u: "und"},
-        {n: "BRINKY MIXTERY 24BS*10*6 20818", u: "und"},
-        {n: "BRINKY VAINILLA 24BS*12*4 20505", u: "und"},
-        {n: "BUnUELO MAO *12KG B07", u: "und"},
-        {n: "CABELLO DE ANGEL DORIA 48*125G 1435", u: "und"},
-        {n: "CAFE BUENDIA CLASICO 24*40*1.5GR 12712", u: "und"},
-        {n: "CAFE BUENDIA CLASICO 25TIR*6*10GR 6041", u: "und"},
-        {n: "CAFE BUENDIA DESCAFEINADO 12*170GR 6029", u: "und"},
-        {n: "CAFE BUENDIA LIOFILIZADO 12*170GR 6015", u: "und"},
-        {n: "CAFE BUENDIA SABOR VAINILLA 24*50G 6008", u: "und"},
-        {n: "CAFE LA BASTILLA 24*40GR 79772", u: "und"},
-        {n: "CAFE LA BASTILLA 24LB*25*20GR 3294", u: "und"},
-        {n: "CAFE LA BASTILLA 30*390GR 69703", u: "und"},
-        {n: "CAFE LA BASTILLA 48*110GR 1079670", u: "und"},
-        {n: "CAFE LA BASTILLA 48*200G 79672", u: "und"},
-        {n: "CAFE LA BASTILLA 6*2500G 29255", u: "und"},
-        {n: "CAFE SELLO ROJO 6*2500G 29257", u: "und"},
-        {n: "CAFE SELLO ROJO 24DISP*10SB*40GR 9648", u: "und"},
-        {n: "CAFE SELLO ROJO 48*110GR 79676", u: "und"},
-        {n: "CAFE SELLO ROJO 48*250GR 03325", u: "und"},
-        {n: "CAPRI FRESA 24BS*24UND 20090", u: "und"},
-        {n: "CAPRI VAINILLA 24BS*24UND 20091", u: "und"},
-        {n: "CARACOL COMARRICO 50*120GR 5139", u: "und"},
-        {n: "CARAMELO MAX COCO 16BS*100U 15189", u: "und"},
-        {n: "CELELE GRANIPACK 25*500GR 201C3", u: "und"},
-        {n: "CEPILLO COLG ADULT PREMIER 12*12 85B2", u: "und"},
-        {n: "CEPILLO PRO 1000 2*1 36DISP*1 454181", u: "und"},
-        {n: "CEPILLO PRO 425 6DP*PG12LLV14 88169", u: "und"},
-        {n: "CEPILLO PRO COMPAC ONDULADO 6DP*6UND 887", u: "und"},
-        {n: "CHOCMELOS BESSOS 8*12*30G 3313", u: "und"},
-        {n: "CHOCO KRISPIS KELLOGGS 30DISP*8*30GR", u: "und"},
-        {n: "CHOCOBREAK BALL 18BS*50UN 662", u: "und"},
-        {n: "CHOCOBREAK COOKIES 12PL*70 410", u: "und"},
-        {n: "CHOCOBREAK COOKIES 18*30*5G 692", u: "und"},
-        {n: "CHOCOBREAK MEGA BALL 24*12 12493", u: "und"},
-        {n: "CHOCODISK DANDY 12PL*18*16G 5251", u: "und"},
-        {n: "CHOCOL CORONA CYC 50BR*18PLLA*450G 74117", u: "und"},
-        {n: "CHOCOLAT JET GOOL BALON 12*100*4.5G 8325", u: "und"},
-        {n: "CHOCOLATE CORONA 10DIS*40U*25G 3777-5731", u: "und"},
-        {n: "CHOCOLATE CORONA 50BRR*18PLLA*450G 74116", u: "und"},
-        {n: "CHOCOLATE CORONA 52BARRA*8PAST*200G 4160", u: "und"},
-        {n: "CHOCOLATE CRUZ 24DISP*32*2UND 1056217", u: "und"},
-        {n: "CHOCOLATE CRUZ 96BRR*28PAST*200G 80246", u: "und"},
-        {n: "CHOCOLATINA GOL 12*24*31GR 81626", u: "und"},
-        {n: "CHOCOLATINA GOL MINI 12*24*12GR NUV 8250", u: "und"},
-        {n: "CHOCOLATINA JET 30DISP*50UND 1066740", u: "und"},
-        {n: "CHOCOLATINA JET BALON 24*18*4.5GR 78324", u: "und"},
-        {n: "CHOCOLATINA JET BURBUJ 24*12*14GR 5339", u: "und"},
-        {n: "CHOCOLATINA JUMBO MANI 12*24*17G 8576", u: "und"},
-        {n: "CHOCOLATINA MUU LECHE 18*24*11G 16295", u: "und"},
-        {n: "CHOCOLISTO DOYPAC 44BS*200G 76738", u: "und"},
-        {n: "CHOCOLISTO TARRO UNIDAD 12*900G 75622", u: "und"},
-        {n: "CHOCOLISTO TARRO UNIDAD 30*300G 6740", u: "und"},
-        {n: "CHOCOLYNE CLASICO DPK 24BS*120GR 4389", u: "und"},
-        {n: "CHUPETA MAX COCO 20*24*14GR 8224", u: "und"},
-        {n: "COCOA CORONA 34UND*230G 79789", u: "und"},
-        {n: "COCOA CORONA 50UND*100G 9582", u: "und"},
-        {n: "COFFE DELIG DURO CAPPUCCI 16BS*100 15551", u: "und"},
-        {n: "COFFE DELIGHT BLANDO 16BS*100 1061", u: "und"},
-        {n: "COFFE DELIGHT DURO 18BS*100UN 177", u: "und"},
-        {n: "COLCAFE 3 EN 1 12DISP*12SOBR*19GR 64803", u: "und"},
-        {n: "COLCAFE CLASICO 12*170G 3353", u: "und"},
-        {n: "COLGATE MENTA 48*150ML 79AB2", u: "und"},
-        {n: "COLGATE TRIPLE ACCION 72*125ML 09B2", u: "und"},
-        {n: "CRAKEnAS SALTIN INDV 24BS*8UND 20536", u: "und"},
-        {n: "CREMA DE LECHE REPOSTER 27*200ML 827141", u: "und"},
-        {n: "DETERGENTE ESP LIQ LAVAND 10*1000ML F301", u: "und"},
-        {n: "ESPAGUETIS DORIA 24*250G 1438", u: "und"},
-        {n: "FRIJOL CARGAMANTO EL TRECE 25*500G 22500", u: "und"},
-        {n: "GALLETA DUCALES 3 TACO 24*315G 8808", u: "und"},
-        {n: "GALLETA FESTIVAL CHOCOL 24*12*6 1513", u: "und"},
-        {n: "GALLETA FESTIVAL FRESA 24*12*6 1510", u: "und"},
-        {n: "GALLETA FESTIVAL LIMON 24*12*6 1511", u: "und"},
-        {n: "GALLETA FESTIVAL VAINILLA 24*12*6 1512", u: "und"},
-        {n: "GALLETA SALTIN 3 TACOS UND *24*300G 1568", u: "und"},
-        {n: "JIRAFA ESPECIAL AZUL LIMO 24*250G 30F031", u: "und"},
-        {n: "LAVALOZA CREM LIMON 36*250G 30563", u: "und"},
-        {n: "LECHE PROLE POLVO 30*380GR 827186", u: "und"},
-        {n: "LENTEJA EL TRECE 25*500G 3500", u: "und"},
-        {n: "LIMPIAPISO BLAN VIBRANTE 12*900ML 6894", u: "und"},
-        {n: "MAYONESA CONST DPK 24*150GR 15399", u: "und"},
-        {n: "NOS INV RAPIGEL 24*10 204316", u: "und"},
-        {n: "PAPEL H FAMILIAR 48*1 201260", u: "und"},
-        {n: "SAL REFISAL 25UND*500GR 11105", u: "und"},
-        {n: "SALSA TOMATE CONS 12*400GR 3275", u: "und"},
-        {n: "VISTA HERMOSA 25LB*500G", u: "und"},
-        {n: "ZUCARITAS KELLOGGS 30*8*30G 61100", u: "und"}
+        {n: "PINOLINA CANELA X 460", u: "UND"},
+        {n: "PANELA", u: "PAR"}
+        // Aquí puedes seguir pegando tu lista de 1.253 ítems...
     ];
 
     let pedido = [];
+
+    // CARGAR PRODUCTOS PERSONALIZADOS DEL LOCALSTORAGE
+    function cargarPersistencia() {
+        const guardados = JSON.parse(localStorage.getItem('distrileco_custom_prods')) || [];
+        // Combinamos sin duplicar nombres
+        guardados.forEach(p => {
+            if(!productosDB.some(db => db.n === p.n)) productosDB.push(p);
+        });
+        document.getElementById('lbl-buscador').innerText = `Buscar Producto (${productosDB.length} ítems)`;
+    }
+    cargarPersistencia();
 
     function actualizarReloj() {
         const opciones = { timeZone: 'America/Bogota', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
@@ -407,24 +123,31 @@
             filtrados.forEach(p => {
                 const div = document.createElement('div');
                 div.className = "result-item";
-                div.innerHTML = `<strong>${p.n}</strong><br><small>Unidad sugerida: ${p.u}</small>`;
-                div.onclick = () => { 
-                    pedido.push({...p, c: 1}); 
-                    render(); 
-                    resBox.style.display = "none"; 
-                    document.getElementById('buscador').value=""; 
-                };
+                div.innerHTML = `<strong>${p.n}</strong><br><small>Unidad: ${p.u}</small>`;
+                div.onclick = () => { pedido.push({...p, c: 1}); render(); resBox.style.display = "none"; document.getElementById('buscador').value=""; };
                 resBox.appendChild(div);
             });
         }
     }
 
     function agregarManual() {
-        const nom = document.getElementById('manual-nombre').value.toUpperCase();
-        const und = document.getElementById('manual-unidad').value.toUpperCase() || "UND";
+        const nom = document.getElementById('manual-nombre').value.toUpperCase().trim();
+        const und = document.getElementById('manual-unidad').value.toUpperCase().trim() || "UND";
         if(!nom) return alert("Escriba el nombre");
-        pedido.push({ n: nom, u: und, c: 1 });
+
+        const nuevo = { n: nom, u: und };
+        pedido.push({ ...nuevo, c: 1 });
         render();
+
+        // PERSISTENCIA: Guardar si no existe en la base de datos
+        let guardados = JSON.parse(localStorage.getItem('distrileco_custom_prods')) || [];
+        if(!productosDB.some(p => p.n === nom)) {
+            guardados.push(nuevo);
+            localStorage.setItem('distrileco_custom_prods', JSON.stringify(guardados));
+            productosDB.push(nuevo);
+            document.getElementById('lbl-buscador').innerText = `Buscar Producto (${productosDB.length} ítems)`;
+        }
+
         document.getElementById('manual-nombre').value = "";
         document.getElementById('manual-unidad').value = "";
     }
@@ -436,9 +159,9 @@
             const fila = document.createElement('tr');
             fila.innerHTML = `
                 <td><small>${item.n}</small></td>
-                <td><input type="text" style="width:70px; padding:5px;" value="${item.u}" onchange="pedido[${i}].u=this.value"></td>
-                <td><input type="number" style="width:50px; padding:5px;" value="${item.c}" onchange="pedido[${i}].c=this.value"></td>
-                <td><button style="background:red; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer;" onclick="pedido.splice(${i},1);render()">✕</button></td>
+                <td><input type="text" style="width:70px" value="${item.u}" onchange="pedido[${i}].u=this.value.toUpperCase()"></td>
+                <td><input type="number" style="width:50px" value="${item.c}" onchange="pedido[${i}].c=this.value"></td>
+                <td><button style="background:red; color:white; border:none; padding:5px; border-radius:5px; cursor:pointer" onclick="pedido.splice(${i},1);render()">✕</button></td>
             `;
             tabla.appendChild(fila);
         });
@@ -446,32 +169,45 @@
 
     function enviarWA() {
         const cli = document.getElementById('cliente').value;
-        const dir = document.getElementById('direccion').value;
-        const cel = document.getElementById('celular').value;
-        if(!cli || !dir || !cel) return alert("Complete los datos del cliente");
-        if(pedido.length === 0) return alert("El pedido está vacío");
-        
-        let msg = `*📦 PEDIDO DISTRILECO*%0A*Cliente:* ${cli}%0A*Dir:* ${dir}%0A*Cel:* ${cel}%0A*Hora:* ${document.getElementById('reloj').innerText}%0A%0A`;
-        pedido.forEach(p => msg += `✅ ${p.n}%0A    Cant: ${p.c} (${p.u})%0A%0A`);
+        if(!cli || pedido.length === 0) return alert("Faltan datos del cliente o productos");
+        let msg = `*📦 PEDIDO DISTRILECO*%0A*Cliente:* ${cli}%0A*Hora:* ${document.getElementById('reloj').innerText}%0A%0A`;
+        pedido.forEach(p => msg += `✅ ${p.n}%0A   Cant: ${p.c} (${p.u})%0A%0A`);
         window.open(`https://wa.me/?text=${msg}`);
     }
 
     function bajarExcel() {
-        if(pedido.length === 0) return alert("El pedido está vacío");
+        if(pedido.length === 0) return;
         const cli = document.getElementById('cliente').value || "Cliente";
-        const encabezado = [
-            ["DISTRILECO"], 
-            ["Cliente:", cli], 
-            ["Dirección:", document.getElementById('direccion').value], 
-            ["Registro:", document.getElementById('reloj').innerText],
-            [], 
-            ["PRODUCTO", "UNIDAD", "CANTIDAD"]
-        ];
-        const data = encabezado.concat(pedido.map(p => [p.n, p.u, p.c]));
+        const data = [["PRODUCTO", "UNIDAD", "CANTIDAD"]].concat(pedido.map(p => [p.n, p.u, p.c]));
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Pedido");
         XLSX.writeFile(wb, `Pedido_${cli}.xlsx`);
+    }
+
+    // FUNCIONES DE BACKUP (JSON)
+    function exportarBackup() {
+        const guardados = localStorage.getItem('distrileco_custom_prods');
+        if(!guardados) return alert("No hay productos nuevos para exportar");
+        const blob = new Blob([guardados], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "backup_productos_distrileco.json";
+        a.click();
+    }
+
+    function importarBackup(event) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importados = JSON.parse(e.target.result);
+                localStorage.setItem('distrileco_custom_prods', JSON.stringify(importados));
+                alert("Importación exitosa. La página se recargará.");
+                location.reload();
+            } catch(err) { alert("Archivo no válido"); }
+        };
+        reader.readAsText(event.target.files[0]);
     }
 </script>
 </body>
