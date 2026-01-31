@@ -16,7 +16,7 @@
         .btn-ws { background: var(--s); color: white; border: none; font-weight: bold; cursor: pointer; }
         .btn-excel { background: var(--e); color: white; border: none; font-weight: bold; cursor: pointer; }
         .btn-add-manual { background: var(--accent); color: white; border: none; font-weight: bold; padding: 8px; font-size: 14px; cursor: pointer; }
-        .btn-backup { background: #6c757d; color: white; border: none; font-weight: bold; padding: 8px; font-size: 12px; cursor: pointer; margin-top: 5px; border-radius: 5px; }
+        .btn-backup { background: #6c757d; color: white; border: none; font-weight: bold; padding: 8px; font-size: 12px; cursor: pointer; margin-top: 5px; border-radius: 5px; flex: 1; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { text-align: left; background: #f8f9fa; padding: 10px; border-bottom: 2px solid #dee2e6; font-size: 13px; }
         td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
@@ -75,21 +75,21 @@
             </table>
         </div>
         <button class="btn-ws" onclick="enviarWA()">📲 Enviar WhatsApp</button>
-        <button class="btn-excel" onclick="bajarExcel()">📊 Descargar Excel</button>
+        <button class="btn-excel" onclick="bajarExcel()">📊 Descargar Excel Detallado</button>
     </div>
 </div>
 
 <script>
-    // LISTA MAESTRA INICIAL
+    // LISTA MAESTRA INICIAL (Sigue pegando aquí tu lista larga)
     let productosDB = [
         {n: "SUPER ARROZ 25LB*500G UND", u: "paca"},
         {n: "ACEITE MI CALDERITO 6*2000ML UND", u: "UND"},
         {n: "SAL REFISAL 25UND*500GR 11105", u: "paca"},
         {n: "ARROZ VISTAHERMOSA 10LB", u: "paca"},
         {n: "ARROZ SUPERARROZ 500G", u: "paca"},
-        {n: "PINOLINA CANELA X 460", u: "UND"},
-        {n: "PANELA", u: "PAR"}
-        // Aquí puedes seguir pegando tu lista de 1.253 ítems...
+        {n: "FRIJOL LIMA EL TRECE 25*500GR 23500", u: "LIBRA"},
+        {n: "PANELA", u: "PAR"},
+        {n: "PINOLINA CANELA X 460", u: "UND"}
     ];
 
     let pedido = [];
@@ -97,7 +97,6 @@
     // CARGAR PRODUCTOS PERSONALIZADOS DEL LOCALSTORAGE
     function cargarPersistencia() {
         const guardados = JSON.parse(localStorage.getItem('distrileco_custom_prods')) || [];
-        // Combinamos sin duplicar nombres
         guardados.forEach(p => {
             if(!productosDB.some(db => db.n === p.n)) productosDB.push(p);
         });
@@ -139,7 +138,6 @@
         pedido.push({ ...nuevo, c: 1 });
         render();
 
-        // PERSISTENCIA: Guardar si no existe en la base de datos
         let guardados = JSON.parse(localStorage.getItem('distrileco_custom_prods')) || [];
         if(!productosDB.some(p => p.n === nom)) {
             guardados.push(nuevo);
@@ -169,23 +167,48 @@
 
     function enviarWA() {
         const cli = document.getElementById('cliente').value;
+        const dir = document.getElementById('direccion').value;
+        const cel = document.getElementById('celular').value;
         if(!cli || pedido.length === 0) return alert("Faltan datos del cliente o productos");
-        let msg = `*📦 PEDIDO DISTRILECO*%0A*Cliente:* ${cli}%0A*Hora:* ${document.getElementById('reloj').innerText}%0A%0A`;
+        let msg = `*📦 PEDIDO DISTRILECO*%0A*Cliente:* ${cli}%0A*Dir:* ${dir}%0A*Cel:* ${cel}%0A*Hora:* ${document.getElementById('reloj').innerText}%0A%0A`;
         pedido.forEach(p => msg += `✅ ${p.n}%0A   Cant: ${p.c} (${p.u})%0A%0A`);
         window.open(`https://wa.me/?text=${msg}`);
     }
 
+    // FUNCIÓN DE EXCEL CORREGIDA PARA INCLUIR DATOS DEL CLIENTE
     function bajarExcel() {
-        if(pedido.length === 0) return;
-        const cli = document.getElementById('cliente').value || "Cliente";
-        const data = [["PRODUCTO", "UNIDAD", "CANTIDAD"]].concat(pedido.map(p => [p.n, p.u, p.c]));
-        const ws = XLSX.utils.aoa_to_sheet(data);
+        if(pedido.length === 0) return alert("El pedido está vacío");
+        
+        const cli = document.getElementById('cliente').value || "NO ESPECIFICADO";
+        const dir = document.getElementById('direccion').value || "NO ESPECIFICADA";
+        const cel = document.getElementById('celular').value || "NO ESPECIFICADO";
+        const fecha = document.getElementById('reloj').innerText;
+
+        // Estructura de encabezado personalizada
+        const encabezado = [
+            ["DISTRILECO - REPORTE DE PEDIDO"],
+            ["CLIENTE:", cli],
+            ["DIRECCIÓN:", dir],
+            ["CELULAR:", cel],
+            ["FECHA/HORA:", fecha],
+            [], // Fila en blanco
+            ["PRODUCTO", "UNIDAD", "CANTIDAD"] // Cabecera de la tabla
+        ];
+
+        // Combinamos encabezado con los productos del pedido
+        const cuerpo = pedido.map(p => [p.n, p.u, p.c]);
+        const dataFinal = encabezado.concat(cuerpo);
+
+        const ws = XLSX.utils.aoa_to_sheet(dataFinal);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Pedido");
-        XLSX.writeFile(wb, `Pedido_${cli}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Detalle de Pedido");
+
+        // Ajustar anchos de columna para que se vea bien
+        ws['!cols'] = [{ wch: 45 }, { wch: 15 }, { wch: 15 }];
+
+        XLSX.writeFile(wb, `Pedido_${cli.replace(/ /g, "_")}.xlsx`);
     }
 
-    // FUNCIONES DE BACKUP (JSON)
     function exportarBackup() {
         const guardados = localStorage.getItem('distrileco_custom_prods');
         if(!guardados) return alert("No hay productos nuevos para exportar");
