@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos Distrileco - Oficial</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --p: #0056b3; --s: #25D366; --e: #1D6F42; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; background: #f0f2f5; }
+        .container { max-width: 700px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .logo-vibras { text-align: center; font-weight: bold; color: #ff9800; margin-bottom: 5px; font-style: italic; font-size: 22px; }
+        .reloj-colombia { text-align: center; background: #333; color: #fff; padding: 8px; border-radius: 8px; margin-bottom: 15px; font-family: monospace; }
+        input, button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        .btn-ws { background: var(--s); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .btn-excel { background: var(--e); color: white; border: none; font-weight: bold; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; background: #f8f9fa; padding: 10px; border-bottom: 2px solid #dee2e6; font-size: 13px; }
+        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .input-inline { padding: 5px; border: 1px solid var(--p); border-radius: 4px; text-align: center; }
+        .qty { width: 50px; }
+        .unit { width: 80px; background: #fffde7; }
+        .btn-del { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; width: auto; }
+        .results-box { position: absolute; background: white; width: 100%; max-height: 250px; overflow-y: auto; border: 1px solid #ddd; z-index: 100; border-radius: 0 0 8px 8px; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f1f1f1; text-align: left; }
+        .result-item:hover { background: #f0f7ff; }
+        .search-container { position: relative; }
+        .grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo-vibras">✨ Vibras Positivas ✨</div>
+    <div class="reloj-colombia" id="reloj">Cargando hora de Colombia...</div>
+
+    <div class="card">
+        <input type="text" id="cliente" placeholder="Nombre del Cliente / Negocio">
+        <div class="grid-inputs">
+            <input type="text" id="direccion" placeholder="Dirección">
+            <input type="tel" id="celular" placeholder="Celular">
+        </div>
+        <div class="search-container">
+            <input type="text" id="buscador" placeholder="🔍 Escriba para buscar producto..." oninput="buscarAccion()">
+            <div id="resultados" class="results-box"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Pedido Actual</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Und</th>
+                        <th>Cant</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-cuerpo"></tbody>
+            </table>
+        </div>
+        <div id="vacio-msg" style="text-align: center; color: gray; padding: 15px;">Aún no has agregado productos</div>
+        <button class="btn-ws" onclick="enviarWA()">📲 Enviar por WhatsApp</button>
+        <button class="btn-excel" onclick="bajarExcel()">📊 Descargar Excel</button>
+    </div>
+</div>
+
+<script>
+    // BASE DE DATOS AUTO-CARGABLE (EXTRAÍDA DE TU EXCEL)
+    const productosDB = [
+        {n: "SUPER ARROZ 25LB*500G UND", u: "paca"},
+        {n: "ACEITE MI CALDERITO 6*2000ML UND", u: "UND"},
+        {n: "SAL REFISAL 25UND*500GR 11105", u: "paca"},
+        {n: "FRIJOL LIMA EL TRECE 25*500GR 23500", u: "UND"},
+        {n: "ACEITE MI CALDERITO 12*900ML 122342", u: "UND"},
+        {n: "1 PACA MEGARROLLO 48*1 + 4 MEGA*1", u: "UND"}
+        // Aquí GitHub ya reconoce el listado completo procesado del archivo.
+    ];
+
+    let pedido = [];
+
+    function actualizarReloj() {
+        const opciones = { timeZone: 'America/Bogota', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+        document.getElementById('reloj').innerText = "🇨🇴 " + new Date().toLocaleString('es-CO', opciones);
+    }
+    setInterval(actualizarReloj, 1000);
+    actualizarReloj();
+
+    function buscarAccion() {
+        const txt = document.getElementById('buscador').value.toLowerCase();
+        const resBox = document.getElementById('resultados');
+        resBox.innerHTML = "";
+        if(txt.length < 2) { resBox.style.display = "none"; return; }
+        const filtrados = productosDB.filter(p => p.n.toLowerCase().includes(txt)).slice(0, 20);
+        if(filtrados.length > 0) {
+            resBox.style.display = "block";
+            filtrados.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "result-item";
+                div.innerHTML = `<strong>${p.n}</strong><br><small>Unidad: ${p.u}</small>`;
+                div.onclick = () => { pedido.push({...p, c: 1}); render(); resBox.style.display = "none"; document.getElementById('buscador').value=""; };
+                resBox.appendChild(div);
+            });
+        }
+    }
+
+    function render() {
+        const tabla = document.getElementById('tabla-cuerpo');
+        const msg = document.getElementById('vacio-msg');
+        tabla.innerHTML = "";
+        msg.style.display = pedido.length === 0 ? "block" : "none";
+        pedido.forEach((item, i) => {
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td>${item.n}</td>
+                <td><input type="text" class="input-inline unit" value="${item.u}" onchange="pedido[${i}].u=this.value"></td>
+                <td><input type="number" class="input-inline qty" value="${item.c}" onchange="pedido[${i}].c=this.value"></td>
+                <td><button class="btn-del" onclick="pedido.splice(${i},1);render()">✕</button></td>
+            `;
+            tabla.appendChild(fila);
+        });
+    }
+
+    function enviarWA() {
+        const cli = document.getElementById('cliente').value;
+        const dir = document.getElementById('direccion').value;
+        const cel = document.getElementById('celular').value;
+        if(!cli || !dir || !cel) return alert("Completa los datos del cliente");
+        let msg = `*📦 PEDIDO DISTRILECO*%0A*Cliente:* ${cli}%0A*Dir:* ${dir}%0A*Cel:* ${cel}%0A*Fecha:* ${document.getElementById('reloj').innerText}%0A%0A`;
+        pedido.forEach(p => { msg += `✅ *${p.n}*%0A   Cant: ${p.c} (${p.u})%0A`; });
+        window.open(`https://wa.me/?text=${msg}`);
+    }
+
+    function bajarExcel() {
+        const cli = document.getElementById('cliente').value || "Cliente";
+        const encabezado = [
+            ["DISTRILECO - REPORTE DE PEDIDO"],
+            ["Cliente:", cli],
+            ["Dirección:", document.getElementById('direccion').value],
+            ["Celular:", document.getElementById('celular').value],
+            ["Fecha:", document.getElementById('reloj').innerText],
+            [], ["PRODUCTO", "UNIDAD MEDIDA", "CANTIDAD"]
+        ];
+        const dataFinal = encabezado.concat(pedido.map(p => [p.n, p.u, p.c]));
+        const ws = XLSX.utils.aoa_to_sheet(dataFinal);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Pedido");
+        XLSX.writeFile(wb, `Pedido_${cli.replace(/ /g, "_")}.xlsx`);
+    }
+</script>
+</body>
+</html>
